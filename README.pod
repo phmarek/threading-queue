@@ -76,6 +76,6 @@ excuse the obfuscation.
 
 =head1 LICENSE
 
-TSQ is released under the LLGPL, see L<the Cliki page|http://www.cliki.net/LGPL>.
+TSQ is released under the LLGPL, see L<http://www.cliki.net/LGPL>.
 
 =cut
