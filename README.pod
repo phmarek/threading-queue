@@ -1,0 +1,81 @@
+=pod
+
+=head1 NAME
+
+Threading Queue - splitting work across several threads
+
+
+=head1 SYNOPSIS
+
+	(threading-feed (:initial-contents '(1 2 3 4 5))
+		(:parallel 3
+		  (sleep 1)
+		  *)
+		(format t "output single-threaded: ~a~%" *)
+		(:parallel 2
+			(format t "output multi-threaded: ~a~%" *)))
+
+
+=head1 DESCRIPTION
+
+This Common Lisp library provides an easy way to split work over several 
+workers.
+
+There are several options that can be set globally and per-step.
+Using per-step options in the global sections makes them defaults for the 
+individual steps.
+
+
+=head2 Global options
+
+=over
+
+=item :initial-contents NIL
+
+This expression is evaluated once, and specifies the elements that get fed into the first step.
+
+If this is not specified, the first step will be called until it returns C<NIL>; a verbatim C<NIL> element can be inserted into the queue by returning a non-C<NIL> second value.
+
+=item :want-result T
+
+If this is C<T> (the default), the return values of the last step are accumulated and returned.
+
+For C<NIL> only a single C<NIL> is returned; this is useful if the side-effects of the process are important.
+
+
+=back
+
+
+=head2 Per-step options
+
+Most of these can be given in the global section, and are then used as default for each step.
+
+=over
+
+=item :parallel NIL aka :threads
+
+How many threads should be allocated for this step?
+
+This is an upper limit; if there's no input left, no additional threads will be started.
+
+=back
+
+
+=head1 COMPATIBILITY
+
+Because TSQ uses C<sb-concurrency:mailbox> (and some other SBCL specifica) 
+internally, it is currently limited to SBCL.
+
+Patches are welcome.
+
+
+=head1 AUTHOR
+
+TSQ was written by Philipp Marek, C<philipp BAT marek POT priv SHOT at>. Please 
+excuse the obfuscation.
+
+=head1 LICENSE
+
+TSQ is released under the LLGPL, see L<the Cliki page|http://www.cliki.net/LGPL>.
+
+=cut
