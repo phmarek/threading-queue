@@ -21,13 +21,12 @@
                  (with-slots (input-count mb eoq?) tq
                    (print-unreadable-object (tq stream :identity t :type nil)
                      (format stream "tq inputs ~a elements ~a eoq? ~a"
-                             (sb-thread:semaphore-count input-count)
+                             input-count
                              (mailbox-count mb)
                              eoq?))))))
   (stop-sym *default-stop-sym* :type symbol)
   ;; TODO: make output-count, to provide EPIPE behaviour
-  ;; TODO: make atomic int instead
-  (input-count (sb-thread:make-semaphore :count 1 :name "input-count"))
+  (input-count 1 :type sb-ext:word)
   ;; set by tq-get if no inputs left and stop-symbol encountered;
   (eoq? nil :type (member t nil))
   (mb (make-mailbox)))
@@ -37,7 +36,7 @@
 ;;; --------------------------------------------------
 ;;; Input count handling
 (defun tq-inputs-left (tq)
-  (sb-thread:semaphore-count (tq-input-count tq)))
+  (tq-input-count tq))
 
 (defun tq-inputs-exhausted? (tq)
   (zerop (tq-inputs-left tq)))
@@ -45,25 +44,24 @@
 (defun tq-inputs-left? (tq)
   (not (tq-inputs-exhausted? tq)))
 
-
 (defun %tq-send-eoq (queue)
   (assert (tq-inputs-exhausted? queue))
   (send-message (tq-mb queue) *internal-stop-sym*))
 
 
 (defun tq-new-input (tq)
-  (sb-thread:signal-semaphore (tq-input-count tq)))
+  (sb-ext:atomic-incf (tq-input-count tq)))
 
 (defun tq-input-vanished (tq &optional (n 1))
+  (declare (type %threading-queue tq))
   (assert (plusp n))
-  (with-slots (input-count) tq
-    (iter (repeat (1- n))
-          (assert (plusp (sb-thread:semaphore-count input-count)))
-          (for new = (sb-thread:wait-on-semaphore input-count))
-          (assert (or (zerop new) (plusp new))))
-    ; (format t "vanished -- ~a~%" (sb-thread:semaphore-count input-count))
-    (when (zerop (sb-thread:wait-on-semaphore input-count))
-      (%tq-send-eoq tq))))
+  (let ((old-val (sb-ext:atomic-decf (tq-input-count tq) n)))
+    (cond
+      ((= n old-val)
+       (%tq-send-eoq tq))
+      ((> n old-val)
+       (error "input count got negative: ~d" (tq-input-count tq)))
+      (t t))))
 
 
 
@@ -72,7 +70,7 @@
 (defun tq-end-of-queue? (tq)
   (declare (type %threading-queue tq))
   ;; we're just looking at a few pointers, so no need to lock (?)
-  (with-slots (mb input-count) tq
+  (with-slots (mb) tq
     (and (tq-inputs-exhausted? tq)
          (mailbox-empty-p mb))))
 
