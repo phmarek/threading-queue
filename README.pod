@@ -9,7 +9,7 @@ Threading Queue - splitting work across several threads
 
 =head1 SYNOPSIS
 
-  (threading-feed 
+  (threading-feed
     (:initial-contents '(1 2 3 4 5))
       (:parallel 3
          (sleep 1)
@@ -22,6 +22,10 @@ Threading Queue - splitting work across several threads
 =head1 DESCRIPTION
 
 This Common Lisp library provides an easy way to split work over several workers.
+
+Elements are returned with a second value of C<T>, so a C<NIL> will come out as C<(values NIL T)>.
+As soon as a queue is empty it returns C<(values NIL NIL)>, and won't call your code anymore.
+This is similar to the C<gethash> function.
 
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
@@ -83,6 +87,27 @@ Only with C<NIL> you get and return singular elements.
 This specifies the code that gets run at the end of each thread; the returned values are accumulated into the second value of C<THREADING-FEED>.
 
 =back
+
+
+=head1 EXAMPLES AND SPECIAL CASES
+
+=head2 READ function family
+
+The C<READ>-function family has the other style of signaling the end of data; their second value is C<T> to signal end-of-data.
+If a step consists only of a single expression, and its first symbol is included in C<threading-queue:*reverse-2nd-value*>, a bit of code to reverse the meaning is put around the statement.
+
+So a typical case might look like this:
+
+  (with-open-file (stream "/etc/hosts")
+    (threading-feed
+      ()
+      (read-line stream nil nil)
+      (:parallel 3
+         (cons * (expensive-operation *)))
+      (format t
+              "Result: ~a => ~a~%"
+              (car *)
+              (cdr *))))
 
 
 =head1 COMPATIBILITY

@@ -291,19 +291,14 @@
   While GETHASH returns T as second value if valid, READ-LINE
   returns T for EOF (in some circumstances).
   Try to guess a few well-known things."
-  (case (first body)
-    ((cl:read-line
-       cl:read
-       cl:read-char
-       cl:read-delimited-list
-       cl:read-preserving-whitespace)
-     (let ((res-var (gensym))
-           (eof-var (gensym)))
-       `(multiple-value-bind (,res-var ,eof-var) ,body
-          (if ,eof-var
-            (values nil nil)
-            (values ,res-var ,res-var)))))
-    (t body)))
+  (if (member (first body) *reverse-2nd-value*)
+    (let ((res-var (gensym))
+          (eof-var (gensym)))
+      `(multiple-value-bind (,res-var ,eof-var) ,body
+         (if ,eof-var
+           (values nil nil)
+           (values ,res-var ,res-var))))
+    body))
 
 (defun %make-stmt-fn (statement name make-* id)
   (let* ((fn-name (gensym (format nil "~a-~d-" 'func id)))

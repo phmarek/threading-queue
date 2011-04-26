@@ -56,6 +56,9 @@ Threading Queue - splitting work across several threads
       (:parallel 2
          (format t \"output multi-threaded: ~a~%\" *)))
 This Common Lisp library provides an easy way to split work over several workers.
+Elements are returned with a second value of C<T>, so a C<NIL> will come out as C<(values NIL T)>.
+As soon as a queue is empty it returns C<(values NIL NIL)>, and won't call your code anymore.
+This is similar to the C<gethash> function.
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
 Please see +all-options+ for more information about the options; the small reminder list is
