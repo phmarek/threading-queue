@@ -13,6 +13,7 @@
 	(cons :batch-size NIL)
 	(cons :at-end T)
 	(cons :queue-named NIL)
+	(cons :call-with-fns NIL)
 	)
 	:test #'equal :documentation "
 	Global options:
@@ -37,11 +38,24 @@ Only with NIL you get and return singular elements.
 	** :queue-named: Normally the queue variable names are generated via GENSYM; with this option the queue that passed data further down can be given a name.
 This is useful if you want to back-inject values (to get a kind of loop), or to return a queue, to pass it to other functions.
 If this is used in the global options, the C<:initial-contents>-queue gets a name.
+	** :call-with-fns: This option takes a lambda that gets called with three parameters: a closure to read from the input queue (with an optional count parameter, see :batch-size above), a closure that puts all its parameters onto the output queue, and a closure that puts the list it gets as first parameter onto the output queue.
+If this is used, no other statements might be given.
+  (threading-feed ()
+    ...
+    (:call-with-fns
+      (lambda (qget qput-rest qput-list)
+        (declare (ignore qput-list))
+        (unwind-protect
+          (iter (for (values items valid) = (funcall qget 3))
+                (while valid)
+                (funcall qput-rest (apply #'+ items)))
+          (tq-input-vanished bar)))))
+The example shows the check for end-of-queue (via the valid variable), and the passing
 	")
 
 
 (define-constant +per-stmt-options+ '(
-	:parallel :arg-name :batch-size :at-end :queue-named)
+	:parallel :arg-name :batch-size :at-end :queue-named :call-with-fns)
 	:test #'equal)
 
 (define-constant +option-aliases+ '(
@@ -66,6 +80,6 @@ This is similar to the C<gethash> function.
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
 Please see +all-options+ for more information about the options; the small reminder list is
-	:initial-contents :max-concurrent-threads :want-result :sync-every :parallel :arg-name :batch-size :at-end :queue-named"
+	:initial-contents :max-concurrent-threads :want-result :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns"
 	:test #'equal)
 

@@ -321,3 +321,18 @@
      (threading-feed ()
                      (read input nil nil)
                      (1+))))
+
+
+;; test :call-with-fns
+(X ((:xa :xs :xd :xf :xg :xh :xj) (T T T T))
+   (threading-feed ()
+       (:call-with-fns
+         (lambda (qget qput-rest qput-list)
+           (declare (ignore qget qput-list))
+           (with-input-from-string (input "a s d f g h j")
+             (iter (for line = (read input nil nil))
+                   (while line)
+                   (funcall qput-rest line)))))
+       (symbol-name)
+       (concatenate 'string "X" *)
+       (intern * 'keyword)))

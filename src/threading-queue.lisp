@@ -348,6 +348,8 @@
       (error "~&When using :call-with-fns referencing tqs must be done yourself, :uses-tq not possible; in~& ~a~&" stmt))
     (if (and call-with-fns batch-size)
       (error "~&:batch-size and :call-with-fns make no sense together, in~& ~a~&" stmt))
+    (if (and stmt call-with-fns)
+      (error "~&:call-with-fns must be something callable, and no statements are allowed, in~& ~a~&" stmt))
     (if (and (not prev-q-n) batch-size)
       (error "~&:batch-size invalid in generator code (first statement), in~& ~a~&" stmt))
     (let ((fn-name (gensym (format nil "~a-~d-" 'starter stmt-counter))))

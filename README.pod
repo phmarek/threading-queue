@@ -93,6 +93,26 @@ This is useful if you want to back-inject values (to get a kind of loop), or to 
 
 If this is used in the global options, the C<:initial-contents>-queue gets a name.
 
+=item :call-with-fns NIL
+
+This option takes a C<lambda> that gets called with three parameters: a closure to read from the input queue (with an optional count parameter, see :batch-size above), a closure that puts all its parameters onto the output queue, and a closure that puts the list it gets as first parameter onto the output queue.
+
+If this is used, no other statements might be given.
+
+  (threading-feed ()
+    ...
+    (:call-with-fns
+      (lambda (qget qput-rest qput-list)
+        (declare (ignore qput-list))
+        (iter (for (values items valid) = (funcall qget 3))
+              (while valid)
+              (funcall qput-rest (apply #'+ items)))))))
+
+The example takes up to 3 numbers from the input queue, and passes their sum to the output queue.
+Please note the check for end-of-queue (via the C<valid> variable).
+
+The C<:parallel> option is still available, and the end-on-output-queue signalling is automatically done.
+
 =back
 
 
