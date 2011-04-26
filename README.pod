@@ -86,6 +86,13 @@ Only with C<NIL> you get and return singular elements.
 
 This specifies the code that gets run at the end of each thread; the returned values are accumulated into the second value of C<THREADING-FEED>.
 
+=item :queue-named NIL
+
+Normally the queue variable names are generated via C<GENSYM>; with this option the queue that passed data further down can be given a name.
+This is useful if you want to back-inject values (to get a kind of loop), or to return a queue, to pass it to other functions.
+
+If this is used in the global options, the C<:initial-contents>-queue gets a name.
+
 =back
 
 

@@ -12,6 +12,7 @@
 	(cons :arg-name *DEFAULT-ARG-NAME*)
 	(cons :batch-size NIL)
 	(cons :at-end T)
+	(cons :queue-named NIL)
 	)
 	:test #'equal :documentation "
 	Global options:
@@ -33,11 +34,14 @@ Ie. if C<:batch-size 3> the step will get a list with up to 3 elements each time
 Using C<:batch-size 1> will give you (and expect) lists, too!
 Only with NIL you get and return singular elements.
 	** :at-end: This specifies the code that gets run at the end of each thread; the returned values are accumulated into the second value of C<THREADING-FEED>.
+	** :queue-named: Normally the queue variable names are generated via GENSYM; with this option the queue that passed data further down can be given a name.
+This is useful if you want to back-inject values (to get a kind of loop), or to return a queue, to pass it to other functions.
+If this is used in the global options, the C<:initial-contents>-queue gets a name.
 	")
 
 
 (define-constant +per-stmt-options+ '(
-	:parallel :arg-name :batch-size :at-end)
+	:parallel :arg-name :batch-size :at-end :queue-named)
 	:test #'equal)
 
 (define-constant +option-aliases+ '(
@@ -47,7 +51,7 @@ Only with NIL you get and return singular elements.
 (define-constant +threading-feed-doc+
 "# vim: et sw=2 ts=2 lisp autoindent nowrap fo= :
 Threading Queue - splitting work across several threads
-  (threading-feed 
+  (threading-feed
     (:initial-contents '(1 2 3 4 5))
       (:parallel 3
          (sleep 1)
@@ -62,6 +66,6 @@ This is similar to the C<gethash> function.
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
 Please see +all-options+ for more information about the options; the small reminder list is
-	:initial-contents :max-concurrent-threads :want-result :parallel :arg-name :batch-size :at-end"
+	:initial-contents :max-concurrent-threads :want-result :sync-every :parallel :arg-name :batch-size :at-end :queue-named"
 	:test #'equal)
 
