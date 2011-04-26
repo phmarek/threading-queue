@@ -253,7 +253,6 @@
         (collecting (assoc-val key list default))))
 
 
-;; TODO: make the option parsing prettier
 ;; We need to parse statement options, and provide the global defaults for them
 ;; we need to parse global options, and allow statement values
 (defun parse-options (input defaults &key
