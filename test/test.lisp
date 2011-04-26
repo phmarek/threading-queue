@@ -313,3 +313,11 @@
     (X ((1)) res)
     (assert (< c 3000))
     (assert (> c 2))))
+
+
+;; test read-* translations
+(with-input-from-string (input "6 7 8 9")
+  (X ((7 8 9 10) (T T))
+     (threading-feed ()
+                     (read input nil nil)
+                     (1+))))
