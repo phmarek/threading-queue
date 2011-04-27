@@ -477,7 +477,6 @@
       (appending fns into functions)
       (if destination
         (collecting `(,destination ,m-tq-expr) into vars))
-      ;; we use a semaphore because we don't need to handle a lock ourselfes
       (collecting
         `(new-thread #',(caar (last fns))
                      ,(assoc-val :parallel stmt-options)
