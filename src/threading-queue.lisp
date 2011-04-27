@@ -406,6 +406,7 @@
          (m-tq-expr `(make-threading-queue :stop-sym ,stop-marker-var))
          (initial-contents (assoc-val :initial-contents global-defaults))
          (ic-var-user (assoc-val :queue-named global-defaults nil))
+         (want-result (assoc-val :want-result global-defaults))
          (ic-var
            (if initial-contents
              (or ic-var-user (gensym "INIT-CONTENTS")))))
@@ -453,9 +454,6 @@
                           :aliases +option-aliases+
                           :allowed-keys +per-stmt-options+))
       ;(format t "def at ~d: ~a~%    ~a~%" stmt-counter stmt-options stmt)
-      (for want-result =
-           (or steps ; steps is here already changed (POP above), so no CDR
-               (assoc-val :want-result global-defaults)))
       ;;
       ;; Other, per-statement, values
       (for user-queue-name = (assoc-val :queue-named stmt-options))
@@ -473,7 +471,10 @@
            initially ic-var)
       ;;
       ;; Code block building
-      (for destination = (if want-result queue-name))
+      (for destination = 
+           (if (or steps want-result)
+             ; steps is here already changed (POP above), so not (CDR steps)
+             queue-name))
       (for fns = (%make-start-fn prev-queue-name destination stmt-counter stmt-options stmt))
       (appending fns into functions)
       (if destination
@@ -552,9 +553,12 @@
                    (concur-set 0)
                    ;; return final data and collect threads
                    (values
-                     ,(if destination
-                        `(tq-get ,destination t)
-                        `nil)
+                     ,(cond
+                        ((eq T want-result)
+                         `(tq-get ,destination t))
+                        ((null want-result)
+                         nil)
+                        (t want-result))
                      (mapcar #'sb-thread:join-thread ,finished-threads-var)))))))))))
 
 

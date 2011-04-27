@@ -53,6 +53,8 @@ If this is C<T> (the default), the return values of the last step are accumulate
 
 For C<NIL> only a single C<NIL> is returned; this is useful if the side-effects of the process are important.
 
+Any expression can be used here; eg. C<(progn (+ 2 2))> is valid, and makes the first value returned from C<threading-queue> be C<4>.
+
 
 =back
 

@@ -336,3 +336,12 @@
        (symbol-name)
        (concatenate 'string "X" *)
        (intern * 'keyword)))
+
+
+;; test :want-result
+(X (nil (T))
+   (threading-feed (:initial-contents '(1 2 3) :want-result nil)
+                   (identity)))
+(X (4 (T))
+   (threading-feed (:initial-contents '(1 2 3) :want-result (progn (+ 2 2)))
+                   (identity)))
