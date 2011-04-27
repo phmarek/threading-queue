@@ -457,9 +457,7 @@
       ;;
       ;; Other, per-statement, values
       (for user-queue-name = (assoc-val :queue-named stmt-options))
-      (if (and user-queue-name
-               ;; on the first iteration the initial-queue
-               (not (first-iteration-p)))
+      (if user-queue-name
         (collecting `(tq-new-input ,user-queue-name)
                     into code))
       (for queue-name =

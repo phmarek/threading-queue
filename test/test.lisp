@@ -345,3 +345,26 @@
 (X (4 (T))
    (threading-feed (:initial-contents '(1 2 3) :want-result (progn (+ 2 2)))
                    (identity)))
+
+
+
+;; test :queue-named
+(X ((g h i) (T))
+   (threading-feed
+     (:initial-contents '(g h i)
+                        :want-result (progn
+                                       (tq-input-vanished foo)
+                                       (tq-items foo)))
+     (:queue-named foo (identity *))))
+
+
+;; test :queue-named and :want-result
+(X (("G" "H" "I"))
+   (let ((tq
+           (threading-feed
+             (:initial-contents '(g h i)
+                                :want-result foo)
+             (:queue-named foo
+                           (symbol-name *)))))
+     (tq-input-vanished tq)
+     (tq-items tq)))
