@@ -24,6 +24,12 @@
                              input-count
                              (mailbox-count mb)
                              eoq?))))))
+  "A thread-safe queue, with signalling for end-of-data.
+  Relevant functions:
+    TQ-GET TQ-PUT TQ-PUT-LIST TQ-ITEMS
+    TQ-NEW-INPUT TQ-INPUT-VANISHED
+    TQ-ITER WITH-TQ-PIPE ITERATE-INTO-TQ
+  There's an ITER clause FROM-TQ, too."
   (stop-sym *default-stop-sym* :type symbol)
   ;; TODO: make output-count, to provide EPIPE behaviour
   (input-count 1 :type sb-ext:word)
@@ -170,9 +176,9 @@
 ;;; --------------------------------------------------
 ;;; Iterate clause and macros
 (iterate:defmacro-driver
-  (FOR var FROM-tq tq &optional batch-size batch)
+  (FOR var FROM-TQ tq &optional batch-size batch)
   "Provides a driver for a tq:
-  FOR var FROM-tq tq [BATCH (1+ (random 3))]
+  FOR var FROM-TQ tq [BATCH (1+ (random 3))]
   The batch size should either be NIL (to get single elements) or
   a positive integer (to get a list); gets evaluated every time."
   (with-gensyms (tq-var res valid)
@@ -185,8 +191,8 @@
            ,res)))))
 
 (defmacro tq-iter ((tq varname
-                         &key batch-size
-                         (clause 'collecting)) &body body)
+                       &key batch-size
+                       (clause 'collecting)) &body body)
   "Builds a loop, giving a variable 'varname' to body with elements
   from the queue.
   The results of body are collected as output.
@@ -208,10 +214,10 @@
 
 
 (defmacro with-tq-pipe ((input output &key
-                                (var '*)
-                                (batch-size nil)
-                                (put-list (not (null batch-size))))
-                         &body body)
+                               (var '*)
+                               (batch-size nil)
+                               (put-list (not (null batch-size))))
+                        &body body)
   (with-gensyms (i o v)
     `(let ((,i ,input)
            (,o ,output))
@@ -219,12 +225,12 @@
          (tq-new-input ,o))
        (unwind-protect
          (tq-iter (,i ,var
-                       :batch-size ,batch-size
-                       :clause progn)
-                   (for ,v = (progn ,@ body))
-                   (if ,o
-                     (,(if put-list 'tq-put-list 'tq-put)
-                       ,o ,v)))
+                      :batch-size ,batch-size
+                      :clause progn)
+                  (for ,v = (progn ,@ body))
+                  (if ,o
+                    (,(if put-list 'tq-put-list 'tq-put)
+                      ,o ,v)))
          (if ,o
            (tq-input-vanished ,o))))))
 
@@ -378,22 +384,22 @@
             (let* ((tq-use-list (if (listp uses-tq) uses-tq (list uses-tq)))
                    (tq-vars (mapcar #'gensym (mapcar #'symbol-name tq-use-list))))
               `(,fn-name ()
-                       (let ,(if tq-use-list
-                               (mapcar #'list tq-vars tq-use-list))
-                         ;; |3b| had the great idea of using curry
-                         ,@ (mapcar (curry 'list 'tq-new-input) tq-vars)
-                         ,(if prev-q-n
-                            ;; queue to queue
-                            `(with-tq-pipe (,prev-q-n
-                                              ,dest
-                                              :batch-size ,batch-size
-                                              :var ,iter-var)
-                                            (,(first user-code) ,iter-var))
-                            ;; function into queue (first input step)
-                            `(iterate-into-tq (,dest)
-                                               (,(first user-code))))
-                         ,@ (mapcar (curry 'list 'tq-input-vanished) tq-vars))
-                       (progn , at-end)))))))))
+                         (let ,(if tq-use-list
+                                 (mapcar #'list tq-vars tq-use-list))
+                           ;; |3b| had the great idea of using curry
+                           ,@ (mapcar (curry 'list 'tq-new-input) tq-vars)
+                           ,(if prev-q-n
+                              ;; queue to queue
+                              `(with-tq-pipe (,prev-q-n
+                                               ,dest
+                                               :batch-size ,batch-size
+                                               :var ,iter-var)
+                                             (,(first user-code) ,iter-var))
+                              ;; function into queue (first input step)
+                              `(iterate-into-tq (,dest)
+                                                (,(first user-code))))
+                           ,@ (mapcar (curry 'list 'tq-input-vanished) tq-vars))
+                         (progn , at-end)))))))))
 
 
 

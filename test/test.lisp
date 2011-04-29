@@ -359,10 +359,10 @@
 
 
 ;; test :queue-named and :want-result
-(X (("G" "H" "I"))
+(X (("G" "H" "L"))
    (let ((tq
            (threading-feed
-             (:initial-contents '(g h i)
+             (:initial-contents '(g h l)
                                 :want-result foo)
              (:queue-named foo
                            (symbol-name *)))))
