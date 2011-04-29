@@ -24,6 +24,7 @@ If this is not specified, the first step will be called until it returns NIL; a 
 The maximum number of simultaneously running threads.
 	** :want-result: If this is T (the default), the return values of the last step are accumulated and returned.
 For NIL only a single NIL is returned; this is useful if the side-effects of the process are important.
+Any expression can be used here; eg. C<(progn (+ 2 2))> is valid, and makes the first value returned from C<threading-queue> be 4.
 	
 	Per-step options:
 	
@@ -38,6 +39,7 @@ Only with NIL you get and return singular elements.
 	** :queue-named: Normally the queue variable names are generated via GENSYM; with this option the queue that passed data further down can be given a name.
 This is useful if you want to back-inject values (to get a kind of loop), or to return a queue, to pass it to other functions.
 If this is used in the global options, the C<:initial-contents>-queue gets a name.
+Please note that you need to care about the input-reference-counting yourself; one input reference is kept for named queues, and you must clean that up via C<tq-input-vanished>.
 	** :call-with-fns: This option takes a lambda that gets called with three parameters: a closure to read from the input queue (with an optional count parameter, see :batch-size above), a closure that puts all its parameters onto the output queue, and a closure that puts the list it gets as first parameter onto the output queue.
 If this is used, no other statements might be given.
   (threading-feed ()
@@ -45,12 +47,12 @@ If this is used, no other statements might be given.
     (:call-with-fns
       (lambda (qget qput-rest qput-list)
         (declare (ignore qput-list))
-        (unwind-protect
-          (iter (for (values items valid) = (funcall qget 3))
-                (while valid)
-                (funcall qput-rest (apply #'+ items)))
-          (tq-input-vanished bar)))))
-The example shows the check for end-of-queue (via the valid variable), and the passing
+        (iter (for (values items valid) = (funcall qget 3))
+              (while valid)
+              (funcall qput-rest (apply #'+ items)))))))
+The example takes up to 3 numbers from the input queue, and passes their sum to the output queue.
+Please note the check for end-of-queue (via the valid variable).
+The C<:parallel> option is still available, and the end-on-output-queue signalling is automatically done.
 	")
 
 
@@ -80,6 +82,6 @@ This is similar to the C<gethash> function.
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
 Please see +all-options+ for more information about the options; the small reminder list is
-	:initial-contents :max-concurrent-threads :want-result :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns"
+	:initial-contents :initial-queue :max-concurrent-threads :want-result :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns"
 	:test #'equal)
 
