@@ -5,6 +5,7 @@
 (define-constant +all-options+ (list
 	;; global
 	(cons :initial-contents NIL)
+	(cons :initial-queue NIL)
 	(cons :max-concurrent-threads 512)
 	(cons :want-result T)
 	;; per-step
@@ -20,6 +21,7 @@
 	
 	** :initial-contents: This expression is evaluated once, and specifies the elements that get fed into the first step.
 If this is not specified, the first step will be called until it returns NIL; a verbatim NIL element can be inserted into the queue by returning a non-NIL second value.
+	** :initial-queue: This is used to use an existing TQ as input to the first step.
 	** :max-concurrent-threads: =for comment (floor MOST-POSITIVE-FIXNUM 3)
 The maximum number of simultaneously running threads.
 	** :want-result: If this is T (the default), the return values of the last step are accumulated and returned.

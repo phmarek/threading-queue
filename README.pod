@@ -41,6 +41,10 @@ This expression is evaluated once, and specifies the elements that get fed into 
 
 If this is not specified, the first step will be called until it returns C<NIL>; a verbatim C<NIL> element can be inserted into the queue by returning a non-C<NIL> second value.
 
+=item :initial-queue NIL
+
+This is used to use an existing TQ as input to the first step.
+
 =item :max-concurrent-threads 512
 
 =for comment (floor MOST-POSITIVE-FIXNUM 3)

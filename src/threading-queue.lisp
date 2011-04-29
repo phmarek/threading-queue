@@ -157,6 +157,15 @@
         (error "non-positive count")))))
 
 
+(defun make-filled-tq (initial-contents &key (eoq nil))
+  "Returns a new threading queue, with initial data."
+  (let ((q (make-threading-queue)))
+    (tq-put-list q initial-contents)
+    (if eoq
+      (tq-input-vanished q))
+    q))
+
+
 
 ;;; --------------------------------------------------
 ;;; Iterate clause and macros
@@ -405,10 +414,11 @@
          (max-thr-var (gensym "MAX-THREADS"))
          (m-tq-expr `(make-threading-queue :stop-sym ,stop-marker-var))
          (initial-contents (assoc-val :initial-contents global-defaults))
+         (initial-queue (assoc-val :initial-queue global-defaults))
          (ic-var-user (assoc-val :queue-named global-defaults nil))
          (want-result (assoc-val :want-result global-defaults))
          (ic-var
-           (if initial-contents
+           (if (or initial-contents initial-queue)
              (or ic-var-user (gensym "INIT-CONTENTS")))))
     ;(format t "glob-def: ~a~%" global-defaults)
     ;; this name is only for the first queue valid;
@@ -416,21 +426,30 @@
     ;; but no duplicates variables are generated
     (if (assoc-val :uses-tq global-defaults)
       (error "~&:uses-tq may not be used in the global options~&"))
+    (if (and initial-contents initial-queue)
+      (error "~&:initial-contents is incompatible with :initial-queue."))
     (push (cons :queue-named nil) global-defaults)
     ;;
     ;; For each step, parse options and build the code.
     (iter
+      ;; Sadly (collecting) doesn't work in (initially).
       (when (first-iteration-p)
         (when ic-var
-          ;; If we have initial contents, we provide an "initial queue" with the data.
-          ;; Sadly (collecting) doesn't work in (initially).
-          (collecting `(,ic-var ,m-tq-expr)
-                      into vars)
-          (collecting `(tq-put-list ,ic-var ,initial-contents)
-                      into code)
-          (unless ic-var-user
-            (collecting `(tq-input-vanished ,ic-var)
-                        into code)))
+          (if initial-queue
+            (progn
+              (collecting `(,ic-var ,initial-queue)
+                          into vars)
+              (collecting `(check-type ,ic-var %threading-queue)
+                          into code))
+            (progn
+              ;; If we have initial contents, we provide an "initial queue" with the data.
+              (collecting `(,ic-var ,m-tq-expr)
+                          into vars)
+              (collecting `(tq-put-list ,ic-var ,initial-contents)
+                          into code)
+              (unless ic-var-user
+                (collecting `(tq-input-vanished ,ic-var)
+                            into code)))))
         (let ((init-code (assoc-val :init global-defaults)))
           (when init-code
             (collecting

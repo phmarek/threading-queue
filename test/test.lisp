@@ -368,3 +368,10 @@
                            (symbol-name *)))))
      (tq-input-vanished tq)
      (tq-items tq)))
+
+
+;; test :initial-queue
+(let ((iq (make-filled-tq  '(a d g) :eoq T)))
+  (X ((a d g) (T))
+     (threading-feed (:initial-queue iq)
+                     (identity))))
