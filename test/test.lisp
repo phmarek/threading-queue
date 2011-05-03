@@ -188,30 +188,30 @@
 ;; test parse-options
 (X (((:B . 2) (:A . 1) (:A . A) (:B . B))
     ())
-   (tq::parse-options (list :a 1 :b 2 )
-                  '((:a . a) (:b . b))))
+   (threading-queue::parse-options (list :a 1 :b 2 )
+                                   '((:a . a) (:b . b))))
 
 (X (((:B . 2) (:A . 1) (:A . A) (:B . B))
     (x))
-   (tq::parse-options (list :a 1 :b 2 'x)
-                  '((:a . a) (:b . b))))
+   (threading-queue::parse-options (list :a 1 :b 2 'x)
+                                   '((:a . a) (:b . b))))
 
 (X (((:A . A) (:B . B))
     (y))
-   (tq::parse-options (list 'y)
-                  '((:a . a) (:b . b))))
+   (threading-queue::parse-options (list 'y)
+                                   '((:a . a) (:b . b))))
 
 
 (X (((:A . 1) (:A . A) (:B . B))
     nil)
-   (tq::parse-options (list :a 1) '((:a . a) (:b . b))
-                  :allowed-keys '(:a :b)))
+   (threading-queue::parse-options (list :a 1) '((:a . a) (:b . b))
+                                   :allowed-keys '(:a :b)))
 
 (X (((:A . 1) (:d . d) (:e . e))
     nil)
-   (tq::parse-options (list :c 1) '((:d . d) (:e . e))
-                  :aliases '((:c . :a))
-                  :allowed-keys '(:a :b)))
+   (threading-queue::parse-options (list :c 1) '((:d . d) (:e . e))
+                                   :aliases '((:c . :a))
+                                   :allowed-keys '(:a :b)))
 
 ;; test with-tq-pipe
 (X ((2 4 6) T)
