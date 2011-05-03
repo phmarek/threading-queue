@@ -11,5 +11,4 @@
 
            #:with-tq-pipe #:tq-iter #:iterate-into-tq
 
-           #:threading-feed)
-  (:nicknames #:tq))
+           #:threading-feed))
