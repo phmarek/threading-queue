@@ -106,6 +106,7 @@
   stop-symbol."
   (if (tq-inputs-exhausted? queue)
     (iter (for lst on data)
+          (for counter from 1)
           (for prev-to-lst previous lst)
           (when (eq (car lst) *internal-stop-sym*)
             (%tq-send-eoq queue)
@@ -118,9 +119,9 @@
             ;(Format t "fix-eoq: ~a~%" data)
             (return
               (if data
-                (values data t)
+                (values data counter)
                 (values (tq-stop-sym queue) nil)))))
-    (values data t)))
+    (values data (length data))))
 
 
 (defun %tq-get-multiple (queue n)
@@ -132,7 +133,7 @@
         (multiple-value-bind (msg valid) (tq-get queue nil)
           (if valid
             ;; Have to return a list
-            (values (list msg) t)
+            (values (list msg) valid)
             (values stop-sym nil)))))))
 
 
@@ -141,7 +142,7 @@
   For (eq n NIL) only an element, for positive n (even for 1!) a list is returned.
   If n is T, all (currently available!) elements are returned in a list.
   First return value is the end-of-queue symbol if nothing left;
-  the second value is T for data or NIL for end-of-queue."
+  the second value NIL for end-of-queue, or the number of elements returned."
   ;; TODO: locking and reservation in next queue if strict order needed
   (declare (type %threading-queue queue))
   (with-slots (mb stop-sym eoq?) queue
@@ -154,7 +155,7 @@
            (progn
              (%tq-send-eoq queue)
              (values stop-sym nil))
-           (values msg t))))
+           (values msg 1))))
       ((eq n t)
        (%tq-get-multiple queue nil))
       ((plusp n)
@@ -342,8 +343,8 @@
 (defun %get-call-w-fns (load-queue-var fn store-queue-var)
   `(,fn
      ,@(if load-queue-var
-         `(lambda (&optional (n 1))
-            (tq-get ,load-queue-var n))
+         `((lambda (&optional (n 1))
+            (tq-get ,load-queue-var n)))
          `(#'ignore-args))
      ,@(if store-queue-var
          `((lambda (&rest rest)

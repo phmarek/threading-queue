@@ -24,8 +24,8 @@
                 (sleep 0.6)
                 (tq-input-vanished q)))))
   (tq-put q 1 2 3)
-  (X (1 T)     (tq-get q))
-  (X ((2 3) T) (tq-get q 3))
+  (X (1 1)     (tq-get q))
+  (X ((2 3) 2) (tq-get q 3))
   (X (NIL NIL) (tq-get q))
   (sb-thread:join-thread thr)
   q)
@@ -39,16 +39,16 @@
                 (tq-put q 'end)
                 (tq-input-vanished q)))))
   (tq-put q 1 2 3 4 5)
-  (X (1 T)                     (tq-get q))
+  (X (1 1)                     (tq-get q))
   (tq-put q 6 7)
-  (X ((2 3 4) T)               (tq-get q 3))
+  (X ((2 3 4) 3)               (tq-get q 3))
   (tq-put q (cons 8 9) 10 11)
-  (X ((5 6) T)                 (tq-get q 2))
-  (X (7 T)                     (tq-get q))
-  (X ((8 . 9) T)               (tq-get q))
-  (X (10 T)                    (tq-get q))
-  (X (11 T)                    (tq-get q))
-  (X (end T)                   (tq-get q))
+  (X ((5 6) 2)                 (tq-get q 2))
+  (X (7 1)                     (tq-get q))
+  (X ((8 . 9) 1)               (tq-get q))
+  (X (10 1)                    (tq-get q))
+  (X (11 1)                    (tq-get q))
+  (X (end 1)                   (tq-get q))
   (X (NIL NIL)                 (tq-get q))
   (sb-thread:join-thread thr)
   q)
@@ -214,7 +214,7 @@
                                    :allowed-keys '(:a :b)))
 
 ;; test with-tq-pipe
-(X ((2 4 6) T)
+(X ((2 4 6) 3)
    (let ((i (make-threading-queue))
          (o (make-threading-queue)))
      (tq-put-list i '(1 -1 3 -1 5 -1))
@@ -229,7 +229,7 @@
       (i (list 1 2 3 4 5)))
   (iterate-into-tq (q)
                     (pop i))
-  (X ((1 2 3 4 5) t)  ; the T is "data available"
+  (X ((1 2 3 4 5) 5)
        (tq-get q t)))
 
 (let ((q (make-threading-queue))
@@ -237,7 +237,7 @@
   (iterate-into-tq (q :gives-list t)
                     ; so that the NIL in the middle is not end-of-data
                     (values (pop i) i))
-  (X ((1 2 3 4 5 6) t)
+  (X ((1 2 3 4 5 6) 6)
      (tq-get q t)))
 
 
@@ -336,6 +336,24 @@
        (symbol-name)
        (concatenate 'string "X" *)
        (intern * 'keyword)))
+
+
+;; Test 2nd value (number of elements)
+(threading-feed (:want-result NIL)
+  (:call-with-fns
+	(lambda (g w p)
+	  (declare (ignore g w))
+	  (iter (repeat 1000)
+            (for c = (1+ (random 10)))
+            (funcall p (make-list c :initial-element T))
+            (sleep (random 0.0001)))))
+  (:call-with-fns
+	(lambda (g w p)
+	  (declare (ignore w p))
+	  (iter (for (values lst num) = (funcall g 10))
+			(while num)
+			(assert (= num (length lst)))))))
+
 
 
 ;; test :want-result
