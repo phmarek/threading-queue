@@ -442,6 +442,15 @@
     ;;
     ;; Initializations
     ;;
+    (let ((init-code (assoc-val :init global-defaults)))
+      (when init-code
+        (push
+          `(progn
+             ;; Make the init-code work, regardless
+             ;; whether its (a) or ((a) (b))
+             ,@ (if (consp (first init-code))
+                  init-code
+                  (list init-code))) code)))
     (when ic-var
       (if initial-queue
         (progn
@@ -453,15 +462,6 @@
           (push `(tq-put-list ,ic-var ,initial-contents) code)
           (unless ic-var-user
             (push `(tq-input-vanished ,ic-var) code)))))
-    (let ((init-code (assoc-val :init global-defaults)))
-      (when init-code
-        (push
-          `(progn
-             ;; Make the init-code work, regardless
-             ;; whether its (a) or ((a) (b))
-             ,@ (if (consp (first init-code))
-                  init-code
-                  (list init-code))) code)))
     ;;
     ;;
     ;; For each step, parse options and build the code.
