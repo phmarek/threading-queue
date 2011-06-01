@@ -8,6 +8,8 @@
 	(cons :initial-queue NIL)
 	(cons :max-concurrent-threads 512)
 	(cons :want-result T)
+	(cons :named NIL)
+	(cons :init-code NIL)
 	;; per-step
 	(cons :parallel NIL)
 	(cons :arg-name *DEFAULT-ARG-NAME*)
@@ -27,6 +29,9 @@ The maximum number of simultaneously running threads.
 	** :want-result: If this is T (the default), the return values of the last step are accumulated and returned.
 For NIL only a single NIL is returned; this is useful if the side-effects of the process are important.
 Any expression can be used here; eg. C<(progn (+ 2 2))> is valid, and makes the first value returned from C<threading-queue> be 4.
+	** :named: Specifies the name of the BLOCK that is put around the generated code.
+	** :init-code: This names code to be placed before starting the queueing operations.
+May use C<RETURN-FROM> (or RETURN, if C<:named> is NIL).
 	
 	Per-step options:
 	
@@ -84,6 +89,6 @@ This is similar to the C<gethash> function.
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
 Please see +all-options+ for more information about the options; the small reminder list is
-	:initial-contents :initial-queue :max-concurrent-threads :want-result :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns"
+	:initial-contents :initial-queue :max-concurrent-threads :want-result :named :init-code :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns"
 	:test #'equal)
 

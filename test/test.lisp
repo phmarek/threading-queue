@@ -393,3 +393,16 @@
   (X ((a d g) (T))
      (threading-feed (:initial-queue iq)
                      (identity))))
+
+;; test :named, :init-code, and RETURN
+(let* ((var)
+	   (result
+		 (threading-feed
+		   (:named X :init-code (setf var 1) :initial-contents '(9))
+		   (:parallel (return-from X 2)
+					  (progn
+						(setf var 3)
+						*))
+		   (setf var *))))
+  (assert (eql var 1))
+  (assert (eql result 2)))

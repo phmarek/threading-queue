@@ -59,6 +59,16 @@ For C<NIL> only a single C<NIL> is returned; this is useful if the side-effects 
 
 Any expression can be used here; eg. C<(progn (+ 2 2))> is valid, and makes the first value returned from C<threading-queue> be C<4>.
 
+=item :named NIL
+
+Specifies the name of the C<BLOCK> that is put around the generated code.
+
+=item :init-code NIL
+
+This names code to be placed before starting the queueing operations.
+
+May use C<RETURN-FROM> (or C<RETURN>, if C<:named> is C<NIL>).
+
 
 =back
 

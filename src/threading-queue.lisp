@@ -420,6 +420,7 @@
          (initial-queue (assoc-val :initial-queue global-defaults))
          (ic-var-user (assoc-val :queue-named global-defaults nil))
          (want-result (assoc-val :want-result global-defaults))
+         (block-name (assoc-val :named global-defaults))
          (ic-var
            (if (or initial-contents initial-queue)
              (or ic-var-user (gensym "INIT-CONTENTS"))))
@@ -442,7 +443,7 @@
     ;;
     ;; Initializations
     ;;
-    (let ((init-code (assoc-val :init global-defaults)))
+    (let ((init-code (assoc-val :init-code global-defaults)))
       (when init-code
         (push
           `(progn
@@ -519,72 +520,73 @@
           (max-thr-var (gensym "MAX-THREADS"))
           (finished-threads-var (gensym "FINI"))
           (thread-count-var (gensym "THR-COUNT")))
-      `(let ((,max-cc-thr-var 0)
-             (,stop-marker-var ,(assoc-val :stop-marker global-defaults))
-             (,max-thr-var ,(assoc-val :max-concurrent-threads global-defaults))
-             ,finished-threads-var
-             (,thread-count-var (sb-thread:make-semaphore :count 0)))
-         ;; the tqs depend on stop-marker-var
-         (let ,(reverse vars)
-           (labels
-             ,(reverse functions)
-             (declare (inline ,@(mapcar #'first functions)))
-             ;; TODO: lower functions, upper functions & flet?
-             ;; the statements given by the user shouldn't see those labels -
-             ;; but our lambdas want to reference other lambdas, so we cannot use flet.
-             ;; TODO: make normal functions? We'd have to pass a lot
-             ;; of data, or use special variables ...
+      `(block ,block-name
+         (let ((,max-cc-thr-var 0)
+               (,stop-marker-var ,(assoc-val :stop-marker global-defaults))
+               (,max-thr-var ,(assoc-val :max-concurrent-threads global-defaults))
+               ,finished-threads-var
+               (,thread-count-var (sb-thread:make-semaphore :count 0)))
+           ;; the tqs depend on stop-marker-var
+           (let ,(reverse vars)
              (labels
-               ((chg-thr-count (delta)
-                               (declare (type fixnum delta))
-                               ;; negative means more threads allowed (less active)
-                               (cond
-                                 ((minusp delta)
-                                  (sb-thread:signal-semaphore ,thread-count-var (- delta)))
-                                 ((plusp delta)
-                                  (iter (repeat delta)
-                                    (sb-thread:wait-on-semaphore ,thread-count-var)))))
-                (concur-set (to)
-                            (chg-thr-count (- ,max-cc-thr-var to))
-                            (setf ,max-cc-thr-var to))
-                (new-thread (fn count prev-queue next-queue)
-                            (iter (repeat (or count 1))
-                              ;; todo: first thread doesn't increment
-                              ;; input+output count, so that the main
-                              ;; thread doesn't need to decrement again
-                              (chg-thr-count 1)
+               ,(reverse functions)
+               (declare (inline ,@(mapcar #'first functions)))
+               ;; TODO: lower functions, upper functions & flet?
+               ;; the statements given by the user shouldn't see those labels -
+               ;; but our lambdas want to reference other lambdas, so we cannot use flet.
+               ;; TODO: make normal functions? We'd have to pass a lot
+               ;; of data, or use special variables ...
+               (labels
+                 ((chg-thr-count (delta)
+                                 (declare (type fixnum delta))
+                                 ;; negative means more threads allowed (less active)
+                                 (cond
+                                   ((minusp delta)
+                                    (sb-thread:signal-semaphore ,thread-count-var (- delta)))
+                                   ((plusp delta)
+                                    (iter (repeat delta)
+                                      (sb-thread:wait-on-semaphore ,thread-count-var)))))
+                  (concur-set (to)
+                              (chg-thr-count (- ,max-cc-thr-var to))
+                              (setf ,max-cc-thr-var to))
+                  (new-thread (fn count prev-queue next-queue)
+                              (iter (repeat (or count 1))
+                                ;; todo: first thread doesn't increment
+                                ;; input+output count, so that the main
+                                ;; thread doesn't need to decrement again
+                                (chg-thr-count 1)
+                                (if next-queue
+                                  (tq-new-input next-queue))
+                                (sb-thread:make-thread
+                                  (lambda ()
+                                    (unwind-protect (funcall fn)
+                                      (push sb-thread:*current-thread* ,finished-threads-var)
+                                      (chg-thr-count -1)
+                                      (if next-queue
+                                        (tq-input-vanished next-queue))
+                                      nil)))
+                                ;; stop creating threads if there's
+                                ;; nothing more to do
+                                ;; TODO: in case of "upwards" injection
+                                ;; we have to create all threads
+                                (until (and prev-queue
+                                            (tq-end-of-queue? prev-queue))))
+                              ;; Now remove the initial 1 from the semaphore
                               (if next-queue
-                                (tq-new-input next-queue))
-                              (sb-thread:make-thread
-                                (lambda ()
-                                  (unwind-protect (funcall fn)
-                                    (push sb-thread:*current-thread* ,finished-threads-var)
-                                    (chg-thr-count -1)
-                                    (if next-queue
-                                      (tq-input-vanished next-queue))
-                                    nil)))
-                              ;; stop creating threads if there's
-                              ;; nothing more to do
-                              ;; TODO: in case of "upwards" injection
-                              ;; we have to create all threads
-                              (until (and prev-queue
-                                          (tq-end-of-queue? prev-queue))))
-                            ;; Now remove the initial 1 from the semaphore
-                            (if next-queue
-                              (tq-input-vanished next-queue))))
-               (assert (plusp ,max-thr-var))
-               (concur-set ,max-thr-var)
-               ,@ (reverse code)
-               ;; wait for end
-               (concur-set 0)
-               ;; return final data and collect threads
-               (values
-                 ,(cond
-                    ((eq T want-result)
-                     `(tq-get ,destination t))
-                    ((null want-result)
-                     nil)
-                    (t want-result))
-                 (mapcar #'sb-thread:join-thread ,finished-threads-var)))))))))
+                                (tq-input-vanished next-queue))))
+                 (assert (plusp ,max-thr-var))
+                 (concur-set ,max-thr-var)
+                 ,@ (reverse code)
+                 ;; wait for end
+                 (concur-set 0)
+                 ;; return final data and collect threads
+                 (values
+                   ,(cond
+                      ((eq T want-result)
+                       `(tq-get ,destination t))
+                      ((null want-result)
+                       nil)
+                      (t want-result))
+                   (mapcar #'sb-thread:join-thread ,finished-threads-var))))))))))
 
 
