@@ -12,7 +12,7 @@
 ;;;
 
 
-(defstruct (%threading-queue
+(defstruct (threading-queue
              (:conc-name tq-)
              (:constructor make-threading-queue)
              (:print-function
@@ -59,7 +59,7 @@
   (sb-ext:atomic-incf (tq-input-count tq)))
 
 (defun tq-input-vanished (tq &optional (n 1))
-  (declare (type %threading-queue tq))
+  (declare (type threading-queue tq))
   (assert (plusp n))
   (let ((old-val (sb-ext:atomic-decf (tq-input-count tq) n)))
     (cond
@@ -74,7 +74,7 @@
 ;;; --------------------------------------------------
 ;;; Writing into the queue
 (defun tq-end-of-queue? (tq)
-  (declare (type %threading-queue tq))
+  (declare (type threading-queue tq))
   ;; we're just looking at a few pointers, so no need to lock (?)
   (with-slots (mb) tq
     (and (tq-inputs-exhausted? tq)
@@ -84,7 +84,7 @@
 (defun tq-put-list (queue data)
   "Takes a single argument, which is a list, and puts
   its elements on the queue."
-  (declare (type %threading-queue queue))
+  (declare (type threading-queue queue))
   (when data
     (when (tq-inputs-exhausted? queue)
       (error "queue has no inputs left"))
@@ -144,7 +144,7 @@
   First return value is the end-of-queue symbol if nothing left;
   the second value NIL for end-of-queue, or the number of elements returned."
   ;; TODO: locking and reservation in next queue if strict order needed
-  (declare (type %threading-queue queue))
+  (declare (type threading-queue queue))
   (with-slots (mb stop-sym eoq?) queue
     (cond
       (eoq?
@@ -456,7 +456,7 @@
       (if initial-queue
         (progn
           (push `(,ic-var ,initial-queue) vars)
-          (push `(check-type ,ic-var %threading-queue) code))
+          (push `(check-type ,ic-var threading-queue) code))
         (progn
           ;; If we have initial contents, we provide an "initial queue" with the data.
           (push `(,ic-var ,m-tq-expr) vars)
