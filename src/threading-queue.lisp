@@ -30,12 +30,50 @@
     TQ-NEW-INPUT TQ-INPUT-VANISHED
     TQ-ITER WITH-TQ-PIPE ITERATE-INTO-TQ
   There's an ITER clause FROM-TQ, too."
-  (stop-sym *default-stop-sym* :type symbol)
   ;; TODO: make output-count, to provide EPIPE behaviour
   (input-count 1 :type sb-ext:word)
   ;; set by tq-get if no inputs left and stop-symbol encountered;
   (eoq? nil :type (member t nil))
   (mb (make-mailbox)))
+
+
+
+;; the lists in this structure get PUSHed, so they are in reverse order.
+(defstruct (tq-step)
+  ;; this is the input
+  settings
+  statements
+  ;; 0 based number
+  index
+  ;; these are build from the input above
+  vars
+  functions
+  run-code
+  ;; these two are tq-link
+  input output)
+
+(defstruct (tq-link
+             ;; don't print readers and writers directly, we'd need 
+             ;; *print-circle* T
+             (:print-function
+               (lambda (link stream depth)
+                 (declare (ignore depth))
+                 (print-unreadable-object (link stream :identity t :type T)
+                   (with-slots (name writers readers) link
+                     (format stream "name ~a" ; r ~a w ~a"
+                             name ;(length readers) (length writers)
+                             ))))))
+  (name (gensym "Q")) 
+  ;; these are tq-step
+  writers readers)
+
+#+nil
+(defun make-tq-link (&key name writers readers)
+  (%make-tq-link
+    :name name
+    :user-defined-name (not (null name))
+    :writers writers
+    :readers readers))
 
 
 
@@ -106,26 +144,26 @@
   stop-symbol."
   (if (tq-inputs-exhausted? queue)
     (iter (for lst on data)
-          (for counter from 1)
-          (for prev-to-lst previous lst)
-          (when (eq (car lst) *internal-stop-sym*)
-            (%tq-send-eoq queue)
-            (when prev-to-lst
-              (setf (cdr prev-to-lst) nil)
-              (finish))
-            ;; Nothing to cut off, got only (list *internal-stop-sym*)
-            (leave (values (tq-stop-sym queue) nil)))
-          (finally
-            ;(Format t "fix-eoq: ~a~%" data)
-            (return
-              (if data
-                (values data counter)
-                (values (tq-stop-sym queue) nil)))))
+      (for counter from 1)
+      (for prev-to-lst previous lst)
+      (when (eq (car lst) *internal-stop-sym*)
+        (%tq-send-eoq queue)
+        (when prev-to-lst
+          (setf (cdr prev-to-lst) nil)
+          (finish))
+        ;; Nothing to cut off, got only (list *internal-stop-sym*)
+        (leave (values nil nil)))
+      (finally
+        ;(Format t "fix-eoq: ~a~%" data)
+        (return
+          (if data
+            (values data counter)
+            (values nil nil)))))
     (values data (length data))))
 
 
 (defun %tq-get-multiple (queue n)
-  (with-slots (mb stop-sym) queue
+  (with-slots (mb) queue
     (let ((pending (receive-pending-messages mb n)))
       (if pending
         (tq-fix-end-of-queue queue pending)
@@ -134,7 +172,7 @@
           (if valid
             ;; Have to return a list
             (values (list msg) valid)
-            (values stop-sym nil)))))))
+            (values nil)))))))
 
 
 (defun tq-get (queue &optional (n nil))
@@ -145,16 +183,16 @@
   the second value NIL for end-of-queue, or the number of elements returned."
   ;; TODO: locking and reservation in next queue if strict order needed
   (declare (type threading-queue queue))
-  (with-slots (mb stop-sym eoq?) queue
+  (with-slots (mb eoq?) queue
     (cond
       (eoq?
-        (values stop-sym nil))
+        (values nil nil))
       ((null n)
        (let ((msg (receive-message mb)))
          (if (eq msg *internal-stop-sym*)
            (progn
              (%tq-send-eoq queue)
-             (values stop-sym nil))
+             (values nil nil))
            (values msg 1))))
       ((eq n t)
        (%tq-get-multiple queue nil))
@@ -265,8 +303,8 @@
 (defun assoc-vals (keylist list)
   "keylist can have (key default) pairs"
   (iter (for %k in keylist)
-        (for (key default) = (if (consp %k) %k (list %k)))
-        (collecting (assoc-val key list default))))
+    (for (key default) = (if (consp %k) %k (list %k)))
+    (collecting (assoc-val key list default))))
 
 
 ;; We need to parse statement options, and provide the global defaults for them
@@ -276,24 +314,24 @@
                             aliases only-keywords)
   "Returns an ALIST and the rest of data."
   (iter (with result-alist = defaults)
-        (for input-cons on input by #'cddr)
-        (for input-key = (car input-cons))
-        (for aliased-key = (assoc-val input-key aliases input-key))
-        (if (keywordp input-key)
-          (if (member aliased-key allowed-keys)
-            (push (cons aliased-key (cadr input-cons)) result-alist)
-            (error "~s is not allowed here. Valid are ~a."
-                   aliased-key
-                   (remove-duplicates
-                     (append allowed-keys (mapcar #'car aliases)))))
-          ;; non-keyword
-          (if only-keywords
-            (error "no non-keywords allowed")
-            (leave
-              (values result-alist input-cons))))
-        (finally
-          (return
-            (values result-alist (cddr input-cons))))))
+    (for input-cons on input by #'cddr)
+    (for input-key = (car input-cons))
+    (for aliased-key = (assoc-val input-key aliases input-key))
+    (if (keywordp input-key)
+      (if (member aliased-key allowed-keys)
+        (push (cons aliased-key (cadr input-cons)) result-alist)
+        (error "~s is not allowed here. Valid are ~a."
+               aliased-key
+               (remove-duplicates
+                 (append allowed-keys (mapcar #'car aliases)))))
+      ;; non-keyword
+      (if only-keywords
+        (error "no non-keywords allowed")
+        (leave
+          (values result-alist input-cons))))
+    (finally
+      (return
+        (values result-alist (cddr input-cons))))))
 
 
 
@@ -344,7 +382,7 @@
   `(,fn
      ,@(if load-queue-var
          `((lambda (&optional (n 1))
-            (tq-get ,load-queue-var n)))
+             (tq-get ,load-queue-var n)))
          `(#'ignore-args))
      ,@(if store-queue-var
          `((lambda (&rest rest)
@@ -398,195 +436,270 @@
                                              (,(first user-code) ,iter-var))
                               ;; function into queue (first input step)
                               `(iterate-into-tq (,dest)
-                                                (,(first user-code))))
+                                 (,(first user-code))))
                            ,@ (mapcar (curry 'list 'tq-input-vanished) tq-vars))
                          (progn , at-end)))))))))
+
+
+(defun parse-one-tq-step (defaults stmt)
+  (unless (consp stmt)
+    (error "want a list instead of ~a" stmt))
+  ;;
+  ;; Read options
+  (multiple-value-bind (opts stmt)
+    (parse-options stmt defaults
+                   :aliases +option-aliases+
+                   :allowed-keys +per-stmt-options+)
+    (make-tq-step
+      :settings opts
+      :statements stmt)))
+
+
+(defun %make-tq (var)
+  `(,var (make-threading-queue)))
+
+
+(defun build-code-1-step (step) 
+  ;(format t "step ~a~%" step) 
+  (with-slots (settings statements index vars functions
+                        run-code input output) step
+    (let* (;; assoc-val default parameter cannot be used, as an
+           ;; element with NIL would get used, too
+           (user-queue-name (assoc-val :queue-named settings))
+           (output-name (or user-queue-name
+                            (and output
+                                 (tq-link-name output))))
+           (fns (%make-start-fn (if input (tq-link-name input))
+                                output-name
+                                index
+                                settings
+                                statements)))
+      (when user-queue-name
+        (unless output
+          (error "step ~a has no output - :queue-named invalid" step))
+        (push `(tq-new-input ,user-queue-name) run-code)
+        (setf (tq-link-name output) user-queue-name))
+      ;;
+      ;; Code block building
+      (setf functions (nconc (reverse fns) functions))
+      (push `(new-thread #',(caar (last fns))
+                         ,(assoc-val :parallel settings)
+                         ,(if input (tq-link-name input))
+                         ,output-name)
+            run-code))))
+
+
+(defun all-steps (fn steps)
+  (apply #'append 
+         (mapcar #'reverse 
+                 (mapcar fn
+                         (coerce steps 'list)))))
+
+
+;;; --------------------------------------------------
+;;; Main functions
+(defun return-code (settings step-list)
+  "Build the code returned by threading-feed; the step-list is in correct 
+  order."
+  (with-gensyms (max-cc-thr-var
+                  max-thr-var
+                  finished-threads-var
+                  thread-count-var)
+    `(block ,(assoc-val :named settings)
+            (let ((,max-cc-thr-var 0)
+                  (,max-thr-var ,(assoc-val :max-concurrent-threads settings))
+                  ,finished-threads-var
+                  (,thread-count-var (sb-thread:make-semaphore :count 0)))
+              (let ,(all-steps #'tq-step-vars step-list)
+                (labels
+                  ,(all-steps #'tq-step-functions step-list)
+                  (declare
+                    (inline 
+                      ,@(mapcar #'first
+                                (all-steps #'tq-step-functions step-list))))
+                  ;; TODO: lower functions, upper functions & flet?
+                  ;; the statements given by the user shouldn't see those labels -
+                  ;; but our lambdas want to reference other lambdas, so we cannot use flet.
+                  ;; TODO: make normal functions? We'd have to pass a lot
+                  ;; of data, or use special variables ...
+                  (labels
+                    ((chg-thr-count (delta)
+                                    (declare (type fixnum delta))
+                                    ;; negative means more threads allowed (less active)
+                                    (cond
+                                      ((minusp delta)
+                                       (sb-thread:signal-semaphore ,thread-count-var (- delta)))
+                                      ((plusp delta)
+                                       (iter (repeat delta)
+                                         (sb-thread:wait-on-semaphore ,thread-count-var)))))
+                     (concur-set (to)
+                                 (chg-thr-count (- ,max-cc-thr-var to))
+                                 (setf ,max-cc-thr-var to))
+                     (new-thread (fn count prev-queue next-queue)
+                                 (iter (repeat (or count 1))
+                                   ;; todo: first thread doesn't increment
+                                   ;; input+output count, so that the main
+                                   ;; thread doesn't need to decrement again
+                                   (chg-thr-count 1)
+                                   (if next-queue
+                                     (tq-new-input next-queue))
+                                   (sb-thread:make-thread
+                                     (lambda ()
+                                       (unwind-protect (funcall fn)
+                                         (push sb-thread:*current-thread* ,finished-threads-var)
+                                         (chg-thr-count -1)
+                                         (if next-queue
+                                           (tq-input-vanished next-queue))
+                                         nil)))
+                                   ;; stop creating threads if there's
+                                   ;; nothing more to do
+                                   ;; TODO: in case of "upwards" injection
+                                   ;; we have to create all threads
+                                   (until (and prev-queue
+                                               (tq-end-of-queue? prev-queue))))
+                                 ;; Now remove the initial 1 from the semaphore
+                                 (if next-queue
+                                   (tq-input-vanished next-queue))))
+                    (assert (plusp ,max-thr-var))
+                    (concur-set ,max-thr-var)
+                    ,@ (all-steps #'tq-step-run-code step-list)
+                    ;; wait for end
+                    (concur-set 0)
+                    ;; return final data and collect threads
+                    (values
+                      ,(assoc-val :want-result settings)
+                      (mapcar #'sb-thread:join-thread ,finished-threads-var)))))))))
+
+
+(defun fix-global-options (options) 
+  (if (assoc-val :uses-tq options)
+    (error "~&:uses-tq may not be used in the global options~&"))
+  (cons
+    ;; this name is only for the first queue valid;
+    ;; Set option to NIL, so that statements can set other names,
+    ;; but no duplicates variables are generated
+    (cons :queue-named nil)
+    options))
+
+
+(defun fix-want-result (steps settings) 
+  (let ((want-result (assoc-val :want-result settings)))
+    (if (not want-result)
+      `nil
+      (let ((last-step (aref steps
+                             (1- (fill-pointer steps))))
+            (name (gensym "RESULT")))
+        (setf (tq-step-output last-step)
+              (make-tq-link :writers last-step
+                            :name name))
+        (cond
+          ((eq T want-result)
+           ;; make an output queue for the last step
+           `(tq-get ,name t))
+          (t ;; any user-code
+            want-result))))))
+
+
+(defun make-vars (steps)
+  (iter (for s in-vector steps)
+    (with-slots (input output vars) s
+      (when (first-iteration-p)
+        (if (and input 
+                 (not (find (tq-link-name input)
+                            vars
+                            :key #'first)))
+          (push (%make-tq (tq-link-name input)) vars)))
+      (if output
+        (push (%make-tq (tq-link-name output)) vars)))))
+
+
+(defun build-code-blocks (steps)
+  (iter (for s in-vector steps)
+    (build-code-1-step s)))
+
+
+(defun setup-initial (result defaults body)
+  (iter 
+    (for body1 in body)
+    (for i from 0)
+    (for new-step = (parse-one-tq-step defaults body1))
+    (for prev-step previous new-step)
+    (setf (tq-step-index new-step) i)
+    (if prev-step
+      (let ((link-to-next (make-tq-link)))
+        (setf (tq-step-output prev-step) link-to-next
+              (tq-step-input new-step) link-to-next)))
+    (vector-push new-step result)))
+
+
+(defun fix-first-step (1st-step settings)
+  (let* ((initial-contents (assoc-val :initial-contents settings))
+         (initial-queue (assoc-val :initial-queue settings))
+         (ic-var-user (assoc-val :queue-named settings))
+         (init-code (assoc-val :init-code settings))
+         (ic-var
+           (if (or initial-contents initial-queue)
+             (or ic-var-user (gensym "INIT-CONTENTS"))))
+         (link (make-tq-link :name ic-var
+                             :readers (list 1st-step))))
+    ;(format t "glob-def: ~a~%" settings)
+    ;;
+    ;; Sanity checks
+    (if (and initial-contents initial-queue)
+      (error "~&:initial-contents is incompatible with :initial-queue."))
+    ;;
+    (when init-code
+      (push
+        `(progn
+           ;; Make the init-code work, regardless
+           ;; whether its (a) or ((a) (b))
+           ,@ (if (consp (first init-code))
+                init-code
+                (list init-code)))
+        (tq-step-run-code 1st-step)))
+    (when ic-var
+      (setf (tq-step-input 1st-step) link)
+      (cond
+        (initial-queue
+          (push `(,ic-var ,initial-queue)
+                (tq-step-vars 1st-step))
+          (push `(check-type ,ic-var threading-queue)
+                (tq-step-run-code 1st-step)))
+        (t
+          ;; If we have initial contents, we provide an "initial queue" with the data.
+          (push `(tq-put-list ,ic-var ,initial-contents) 
+                (tq-step-run-code 1st-step))
+          ;; TODO: done by :feedback-into ??
+          (unless ic-var-user
+            (push `(tq-input-vanished ,ic-var)
+                  (tq-step-run-code 1st-step))))))
+    1st-step))
 
 
 
 ;;; --------------------------------------------------
 ;;; Main macro
-(defmacro threading-feed (&body steps)
+(defmacro threading-feed (&body body)
   ;; TODO: ensure order of elements across user function calls?
-  ;; :name 'A, :wait-for 'A
-  ;; :use-stop-symbol (gensym)
-  (let* ((global-defaults
-           (parse-options (pop steps) +all-options+
+  (let* ((step-count (length body))
+         (steps+1 (1+ step-count))
+         (steps (make-array steps+1
+                            :fill-pointer 0
+                            :element-type 'tq-step))
+         (global-settings
+           (parse-options (pop body) +all-options+
                           :aliases +option-aliases+
                           :only-keywords t))
-         (stop-marker-var (gensym "STOP-MARKER"))
-         (m-tq-expr `(make-threading-queue :stop-sym ,stop-marker-var))
-         (initial-contents (assoc-val :initial-contents global-defaults))
-         (initial-queue (assoc-val :initial-queue global-defaults))
-         (ic-var-user (assoc-val :queue-named global-defaults nil))
-         (want-result (assoc-val :want-result global-defaults))
-         (block-name (assoc-val :named global-defaults))
-         (ic-var
-           (if (or initial-contents initial-queue)
-             (or ic-var-user (gensym "INIT-CONTENTS"))))
-         vars functions code
-         destination)
+         (defaults (fix-global-options global-settings)))
+    ;; make the steps
+    (setup-initial steps defaults body)
+    ;; fix first and last step
+    (fix-first-step (aref steps 0) global-settings)
+    (let ((nr (fix-want-result steps global-settings)))
+      (push 
+        (cons :want-result nr) global-settings))
     ;;
-    ;;
-    ;; Sanity checks
-    ;;
-    ;(format t "glob-def: ~a~%" global-defaults)
-    (if (assoc-val :uses-tq global-defaults)
-      (error "~&:uses-tq may not be used in the global options~&"))
-    (if (and initial-contents initial-queue)
-      (error "~&:initial-contents is incompatible with :initial-queue."))
-    ;; this name is only for the first queue valid;
-    ;; Set option to NIL, so that statements can set other names,
-    ;; but no duplicates variables are generated
-    (push (cons :queue-named nil) global-defaults)
-    ;;
-    ;;
-    ;; Initializations
-    ;;
-    (let ((init-code (assoc-val :init-code global-defaults)))
-      (when init-code
-        (push
-          `(progn
-             ;; Make the init-code work, regardless
-             ;; whether its (a) or ((a) (b))
-             ,@ (if (consp (first init-code))
-                  init-code
-                  (list init-code))) code)))
-    (when ic-var
-      (if initial-queue
-        (progn
-          (push `(,ic-var ,initial-queue) vars)
-          (push `(check-type ,ic-var threading-queue) code))
-        (progn
-          ;; If we have initial contents, we provide an "initial queue" with the data.
-          (push `(,ic-var ,m-tq-expr) vars)
-          (push `(tq-put-list ,ic-var ,initial-contents) code)
-          (unless ic-var-user
-            (push `(tq-input-vanished ,ic-var) code)))))
-    ;;
-    ;;
-    ;; For each step, parse options and build the code.
-    ;;
-    (iter
-      ;;
-      ;; Get statements
-      (for %stmt = (pop steps))
-      (unless (consp %stmt)
-        (error "want a list instead of ~a" %stmt))
-      (for stmt-counter from 1)
-      ;;
-      ;; Read options
-      (for (values stmt-options stmt) =
-           (parse-options %stmt global-defaults
-                          :aliases +option-aliases+
-                          :allowed-keys +per-stmt-options+))
-      ;(format t "def at ~d: ~a~%    ~a~%" stmt-counter stmt-options stmt)
-      ;;
-      ;; Other, per-statement, values
-      (for user-queue-name = (assoc-val :queue-named stmt-options))
-      (if user-queue-name
-        (push `(tq-new-input ,user-queue-name) code))
-      (for queue-name =
-           ;; assoc-val default parameter cannot be used, as an
-           ;; element with NIL would get used, too
-           (or user-queue-name
-               (gensym "QUEUE")))
-      (for prev-queue-name previous queue-name
-           initially ic-var)
-      ;;
-      ;; Code block building
-      (setf destination
-           (if (or steps want-result)
-             ; steps is here already changed (POP above), so not (CDR steps)
-             queue-name))
-      (for fns = (%make-start-fn prev-queue-name destination stmt-counter stmt-options stmt))
-      (setf functions (nconc (reverse fns) functions))
-      (if destination
-        (push `(,destination ,m-tq-expr) vars))
-      (push
-        `(new-thread #',(caar (last fns))
-                     ,(assoc-val :parallel stmt-options)
-                     ,prev-queue-name
-                     ,destination)
-        code)
-      ;;
-      ;;
-      (while steps))
-    ;;
-    ;;
-    ;; Result generation
-    ;;
-    (let ((max-cc-thr-var (gensym "MAX-CONCUR-THR"))
-          (max-thr-var (gensym "MAX-THREADS"))
-          (finished-threads-var (gensym "FINI"))
-          (thread-count-var (gensym "THR-COUNT")))
-      `(block ,block-name
-         (let ((,max-cc-thr-var 0)
-               (,stop-marker-var ,(assoc-val :stop-marker global-defaults))
-               (,max-thr-var ,(assoc-val :max-concurrent-threads global-defaults))
-               ,finished-threads-var
-               (,thread-count-var (sb-thread:make-semaphore :count 0)))
-           ;; the tqs depend on stop-marker-var
-           (let ,(reverse vars)
-             (labels
-               ,(reverse functions)
-               (declare (inline ,@(mapcar #'first functions)))
-               ;; TODO: lower functions, upper functions & flet?
-               ;; the statements given by the user shouldn't see those labels -
-               ;; but our lambdas want to reference other lambdas, so we cannot use flet.
-               ;; TODO: make normal functions? We'd have to pass a lot
-               ;; of data, or use special variables ...
-               (labels
-                 ((chg-thr-count (delta)
-                                 (declare (type fixnum delta))
-                                 ;; negative means more threads allowed (less active)
-                                 (cond
-                                   ((minusp delta)
-                                    (sb-thread:signal-semaphore ,thread-count-var (- delta)))
-                                   ((plusp delta)
-                                    (iter (repeat delta)
-                                      (sb-thread:wait-on-semaphore ,thread-count-var)))))
-                  (concur-set (to)
-                              (chg-thr-count (- ,max-cc-thr-var to))
-                              (setf ,max-cc-thr-var to))
-                  (new-thread (fn count prev-queue next-queue)
-                              (iter (repeat (or count 1))
-                                ;; todo: first thread doesn't increment
-                                ;; input+output count, so that the main
-                                ;; thread doesn't need to decrement again
-                                (chg-thr-count 1)
-                                (if next-queue
-                                  (tq-new-input next-queue))
-                                (sb-thread:make-thread
-                                  (lambda ()
-                                    (unwind-protect (funcall fn)
-                                      (push sb-thread:*current-thread* ,finished-threads-var)
-                                      (chg-thr-count -1)
-                                      (if next-queue
-                                        (tq-input-vanished next-queue))
-                                      nil)))
-                                ;; stop creating threads if there's
-                                ;; nothing more to do
-                                ;; TODO: in case of "upwards" injection
-                                ;; we have to create all threads
-                                (until (and prev-queue
-                                            (tq-end-of-queue? prev-queue))))
-                              ;; Now remove the initial 1 from the semaphore
-                              (if next-queue
-                                (tq-input-vanished next-queue))))
-                 (assert (plusp ,max-thr-var))
-                 (concur-set ,max-thr-var)
-                 ,@ (reverse code)
-                 ;; wait for end
-                 (concur-set 0)
-                 ;; return final data and collect threads
-                 (values
-                   ,(cond
-                      ((eq T want-result)
-                       `(tq-get ,destination t))
-                      ((null want-result)
-                       nil)
-                      (t want-result))
-                   (mapcar #'sb-thread:join-thread ,finished-threads-var))))))))))
-
+    (build-code-blocks steps)
+    (make-vars steps)
+    (return-code global-settings steps)))
 
