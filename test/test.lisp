@@ -272,7 +272,7 @@
                      (caar)
                      (print))))
 
-;; test :max-concurrent-threads
+;; test :max-concurrent-threads: the list tl must be in sorted order
 ;; the actual number of started threads may differ
 (let ((tl nil))
   (X ((11100 11101 11102 11103 11104 11105 11106 11107 11108 11109))
