@@ -41,6 +41,8 @@
 ;; the lists in this structure get PUSHed, so they are in reverse order.
 (defstruct (tq-step)
   ;; this is the input
+  definition
+  ;; this is the parsed/split input
   settings
   statements
   ;; 0 based number
@@ -320,7 +322,7 @@
     (if (keywordp input-key)
       (if (member aliased-key allowed-keys)
         (push (cons aliased-key (cadr input-cons)) result-alist)
-        (error "~s is not allowed here. Valid are ~a."
+        (error "~s is not allowed here. Valid are~& ~a."
                aliased-key
                (remove-duplicates
                  (append allowed-keys (mapcar #'car aliases)))))
@@ -394,18 +396,18 @@
 
 
 
-(defun %make-start-fn (prev-q-n dest stmt-counter opt stmt)
+(defun %make-start-fn (prev-q-n dest stmt-counter opt stmt def)
   (destructuring-bind
     (                  batch-size  call-with-fns  arg-name  at-end  uses-tq)
     (assoc-vals (list :batch-size :call-with-fns :arg-name :at-end :uses-tq) opt)
     (if (and call-with-fns uses-tq)
-      (error "~&When using :call-with-fns referencing tqs must be done yourself, :uses-tq not possible; in~& ~a~&" stmt))
+      (error "~&When using :call-with-fns referencing tqs must be done yourself, :uses-tq not possible; in~& ~s~&" def))
     (if (and call-with-fns batch-size)
-      (error "~&:batch-size and :call-with-fns make no sense together, in~& ~a~&" stmt))
+      (error "~&:batch-size and :call-with-fns make no sense together, in~& ~s~&" def))
     (if (and stmt call-with-fns)
-      (error "~&:call-with-fns must be something callable, and no statements are allowed, in~& ~a~&" stmt))
+      (error "~&:call-with-fns must be something callable, and no statements are allowed, in~& ~s~&" def))
     (if (and (not prev-q-n) batch-size)
-      (error "~&:batch-size invalid in generator code (first statement), in~& ~a~&" stmt))
+      (error "~&:batch-size invalid in generator code (first statement), in~& ~s~&" def))
     (let ((fn-name (gensym (format nil "~a-~d-" 'starter stmt-counter))))
       (if call-with-fns
         ;; User wants function called with closures
@@ -441,16 +443,17 @@
                          (progn , at-end)))))))))
 
 
-(defun parse-one-tq-step (defaults stmt)
-  (unless (consp stmt)
-    (error "want a list instead of ~a" stmt))
+(defun parse-one-tq-step (defaults ostmt)
+  (unless (consp ostmt)
+    (error "want a list instead of ~s" ostmt))
   ;;
   ;; Read options
   (multiple-value-bind (opts stmt)
-    (parse-options stmt defaults
+    (parse-options ostmt defaults
                    :aliases +option-aliases+
                    :allowed-keys +per-stmt-options+)
     (make-tq-step
+      :definition ostmt
       :settings opts
       :statements stmt)))
 
@@ -462,7 +465,7 @@
 (defun build-code-1-step (step) 
   ;(format t "step ~a~%" step) 
   (with-slots (settings statements index vars functions
-                        run-code input output) step
+                        run-code input output definition) step
     (let* (;; assoc-val default parameter cannot be used, as an
            ;; element with NIL would get used, too
            (user-queue-name (assoc-val :queue-named settings))
@@ -473,7 +476,8 @@
                                 output-name
                                 index
                                 settings
-                                statements)))
+                                statements
+                                definition)))
       (when user-queue-name
         (unless output
           (error "step ~a has no output - :queue-named invalid" step))

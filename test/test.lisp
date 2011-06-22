@@ -406,3 +406,20 @@
 		   (setf var *))))
   (assert (eql var 1))
   (assert (eql result 2)))
+
+
+;; test errors
+(handler-case (threading-feed (:unknown-option)
+				(identity))
+  (error () nil)
+  (:no-error () (error "Expected an error.")))
+
+(handler-case (threading-feed ()
+				(:unknown-option))
+  (error () nil)
+  (:no-error () (error "Expected an error.")))
+
+(handler-case (threading-feed ()
+				(:call-with-fns 1 (identity)))
+  (error () nil)
+  (:no-error () (error "Expected an error.")))
