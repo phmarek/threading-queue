@@ -398,8 +398,8 @@
 
 (defun %make-start-fn (prev-q-n dest stmt-counter opt stmt def)
   (destructuring-bind
-    (                  batch-size  call-with-fns  arg-name  at-end  uses-tq)
-    (assoc-vals (list :batch-size :call-with-fns :arg-name :at-end :uses-tq) opt)
+    (                  batch-size  call-with-fns  arg-name  at-end  uses-tq  filter)
+    (assoc-vals (list :batch-size :call-with-fns :arg-name :at-end :uses-tq :filter) opt)
     (if (and call-with-fns uses-tq)
       (error "~&When using :call-with-fns referencing tqs must be done yourself, :uses-tq not possible; in~& ~s~&" def))
     (if (and call-with-fns batch-size)
@@ -408,13 +408,30 @@
       (error "~&:call-with-fns must be something callable, and no statements are allowed, in~& ~s~&" def))
     (if (and (not prev-q-n) batch-size)
       (error "~&:batch-size invalid in generator code (first statement), in~& ~s~&" def))
+    (if (and filter (or call-with-fns stmt))
+      (error "~&:filter is (currently) incompatible with :call-with-fns and other statements, in~& ~a~&" def))
     (let ((fn-name (gensym (format nil "~a-~d-" 'starter stmt-counter))))
-      (if call-with-fns
+      (cond
+		(filter
+		  (let ((filter-fn (gensym "FILTER"))
+				(iter-var (gensym "ITER")))
+			(list
+			  `(,filter-fn (,(intern arg-name))
+						   , filter)
+			  `(,fn-name ()
+						 (with-tq-pipe (,prev-q-n ,dest
+												  :batch-size 1
+												  :var ,iter-var)
+									   (if (,filter-fn (car ,iter-var))
+										 ,iter-var))
+						 (progn , at-end) ))))
+      (call-with-fns
         ;; User wants function called with closures
         (list
           `(,fn-name ()
                      ,(%get-call-w-fns prev-q-n call-with-fns dest)
-                     (progn , at-end)))
+                     (progn , at-end))))
+      (t
         ;; User wants to process items like via mapcon
         (let ((iter-var (gensym "ITER"))
               (user-code (%make-stmt-fn stmt arg-name prev-q-n stmt-counter)))
@@ -438,9 +455,9 @@
                                              (,(first user-code) ,iter-var))
                               ;; function into queue (first input step)
                               `(iterate-into-tq (,dest)
-                                 (,(first user-code))))
+                                                (,(first user-code))))
                            ,@ (mapcar (curry 'list 'tq-input-vanished) tq-vars))
-                         (progn , at-end)))))))))
+                         (progn , at-end))))))))))
 
 
 (defun parse-one-tq-step (defaults ostmt)
@@ -576,8 +593,9 @@
 
 
 (defun fix-global-options (options) 
-  (if (assoc-val :uses-tq options)
-    (error "~&:uses-tq may not be used in the global options~&"))
+  (iter (for key in (list :uses-tq :filter))
+    (if (assoc-val key options)
+      (error "~&~s may not be used in the global options~&" key)))
   (cons
     ;; this name is only for the first queue valid;
     ;; Set option to NIL, so that statements can set other names,

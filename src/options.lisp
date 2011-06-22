@@ -17,6 +17,7 @@
 	(cons :at-end T)
 	(cons :queue-named NIL)
 	(cons :call-with-fns NIL)
+	(cons :filter NIL)
 	)
 	:test #'equal :documentation "
 	Global options:
@@ -60,11 +61,16 @@ If this is used, no other statements might be given.
 The example takes up to 3 numbers from the input queue, and passes their sum to the output queue.
 Please note the check for end-of-queue (via the valid variable).
 The C<:parallel> option is still available, and the end-on-output-queue signalling is automatically done.
+	** :filter: This option takes an expression, and discards all elements for which it returns NIL.
+  (threading-feed (:initial-contents '(1 2 3 4 5 6))
+                  (:filter (oddp *)))
+will return C<1 3 5>.
+C<:parallel> and C<:arg-name> can be used, too.
 	")
 
 
 (define-constant +per-stmt-options+ '(
-	:parallel :arg-name :batch-size :at-end :queue-named :call-with-fns)
+	:parallel :arg-name :batch-size :at-end :queue-named :call-with-fns :filter)
 	:test #'equal)
 
 (define-constant +option-aliases+ '(
@@ -89,6 +95,6 @@ This is similar to the C<gethash> function.
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
 Please see +all-options+ for more information about the options; the small reminder list is
-	:initial-contents :initial-queue :max-concurrent-threads :want-result :named :init-code :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns"
+	:initial-contents :initial-queue :max-concurrent-threads :want-result :named :init-code :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns :filter"
 	:test #'equal)
 

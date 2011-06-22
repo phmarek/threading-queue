@@ -423,3 +423,10 @@
 				(:call-with-fns 1 (identity)))
   (error () nil)
   (:no-error () (error "Expected an error.")))
+
+
+;; test :filter
+(X ((1 5 7) (T T T T))
+   (threading-feed (:initial-contents '(0 1 2 3 4 5 6 7 8 9) :parallel 2)
+	 (:filter (oddp *))
+	 (:filter (not (zerop (mod * 3))))))
