@@ -69,6 +69,12 @@ This names code to be placed before starting the queueing operations.
 
 May use C<RETURN-FROM> (or C<RETURN>, if C<:named> is C<NIL>).
 
+=item :before-stopping NIL
+
+Code given here is put in the main thread, just before waiting for the threads to terminate.
+
+This is a good place to cleanup queues defined with C<:queue-named>, assuming that the C<:max-concurrent-threads> limit allows execution to get there.
+
 
 =back
 
@@ -109,7 +115,7 @@ This is useful if you want to back-inject values (to get a kind of loop), or to 
 
 If this is used in the global options, the C<:initial-contents>-queue gets a name.
 
-Please note that you need to care about the input-reference-counting yourself; one input reference is kept for named queues, and you must clean that up via C<tq-input-vanished>.
+Please note that you need to care about the input-reference-counting yourself; one input reference is kept for named queues, and you must clean that up via C<tq-input-vanished>. See C<:before-stopping>.
 
 =item :call-with-fns NIL
 

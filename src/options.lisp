@@ -10,6 +10,7 @@
 	(cons :want-result T)
 	(cons :named NIL)
 	(cons :init-code NIL)
+	(cons :before-stopping NIL)
 	;; per-step
 	(cons :parallel NIL)
 	(cons :arg-name *DEFAULT-ARG-NAME*)
@@ -33,6 +34,8 @@ Any expression can be used here; eg. C<(progn (+ 2 2))> is valid, and makes the 
 	** :named: Specifies the name of the BLOCK that is put around the generated code.
 	** :init-code: This names code to be placed before starting the queueing operations.
 May use C<RETURN-FROM> (or RETURN, if C<:named> is NIL).
+	** :before-stopping: Code given here is put in the main thread, just before waiting for the threads to terminate.
+This is a good place to cleanup queues defined with C<:queue-named>, assuming that the C<:max-concurrent-threads> limit allows execution to get there.
 	
 	Per-step options:
 	
@@ -47,7 +50,7 @@ Only with NIL you get and return singular elements.
 	** :queue-named: Normally the queue variable names are generated via GENSYM; with this option the queue that passed data further down can be given a name.
 This is useful if you want to back-inject values (to get a kind of loop), or to return a queue, to pass it to other functions.
 If this is used in the global options, the C<:initial-contents>-queue gets a name.
-Please note that you need to care about the input-reference-counting yourself; one input reference is kept for named queues, and you must clean that up via C<tq-input-vanished>.
+Please note that you need to care about the input-reference-counting yourself; one input reference is kept for named queues, and you must clean that up via C<tq-input-vanished>. See C<:before-stopping>.
 	** :call-with-fns: This option takes a lambda that gets called with three parameters: a closure to read from the input queue (with an optional count parameter, see :batch-size above), a closure that puts all its parameters onto the output queue, and a closure that puts the list it gets as first parameter onto the output queue.
 If this is used, no other statements might be given.
   (threading-feed ()
@@ -95,6 +98,6 @@ This is similar to the C<gethash> function.
 There are several options that can be set globally and per-step.
 Using per-step options in the global sections makes them defaults for the individual steps.
 Please see +all-options+ for more information about the options; the small reminder list is
-	:initial-contents :initial-queue :max-concurrent-threads :want-result :named :init-code :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns :filter"
+	:initial-contents :initial-queue :max-concurrent-threads :want-result :named :init-code :before-stopping :parallel :arg-name :batch-size :at-end :queue-named :call-with-fns :filter"
 	:test #'equal)
 

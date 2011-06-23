@@ -260,6 +260,7 @@
 (defmacro with-tq-pipe ((input output &key
                                (var '*)
                                (batch-size nil)
+                               (loop-end nil)
                                (put-list (not (null batch-size))))
                         &body body)
   (with-gensyms (i o v)
@@ -274,7 +275,8 @@
                   (for ,v = (progn ,@ body))
                   (if ,o
                     (,(if put-list 'tq-put-list 'tq-put)
-                      ,o ,v)))
+                      ,o ,v))
+                  ,loop-end)
          (if ,o
            (tq-input-vanished ,o))))))
 
@@ -587,6 +589,7 @@
                     (assert (plusp ,max-thr-var))
                     (concur-set ,max-thr-var)
                     ,@ (all-steps #'tq-step-run-code step-list)
+                    , (ensure-list-of-lists (assoc-val :before-stopping settings))
                     ;; wait for end
                     (concur-set 0)
                     ;; return final data and collect threads
