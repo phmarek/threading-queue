@@ -11,4 +11,6 @@
 
            #:with-tq-pipe #:tq-iter #:iterate-into-tq
 
+           #:cpu-count
+
            #:threading-feed))

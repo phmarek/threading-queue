@@ -725,3 +725,8 @@
     (make-vars steps)
     (return-code global-settings steps)))
 
+
+
+(defun cpu-count ()
+  ; _SC_NPROCESSORS_ONL on linux, amd64
+  (osicat-posix:sysconf #x54))
