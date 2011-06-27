@@ -32,7 +32,7 @@
   There's an ITER clause FROM-TQ, too."
   ;; TODO: make output-count, to provide EPIPE behaviour
   (input-count 1 :type sb-ext:word)
-  ;; set by tq-get if no inputs left and stop-symbol encountered;
+  ;; set by tq-get if no inputs left and stop-symbol encountered.
   (eoq? nil :type (member t nil))
   (mb (make-mailbox)))
 
@@ -116,9 +116,10 @@
 (defun tq-end-of-queue? (tq)
   (declare (type threading-queue tq))
   ;; we're just looking at a few pointers, so no need to lock (?)
-  (with-slots (mb) tq
-    (and (tq-inputs-exhausted? tq)
-         (mailbox-empty-p mb))))
+  (with-slots (mb eoq?) tq
+	(or eoq?
+		(and (tq-inputs-exhausted? tq)
+			 (mailbox-empty-p mb)))))
 
 
 (defun tq-put-list (queue data)
@@ -149,6 +150,7 @@
       (for counter from 1)
       (for prev-to-lst previous lst)
       (when (eq (car lst) *internal-stop-sym*)
+        (setf (tq-eoq? queue) T)
         (%tq-send-eoq queue)
         (when prev-to-lst
           (setf (cdr prev-to-lst) nil)
@@ -193,6 +195,7 @@
        (let ((msg (receive-message mb)))
          (if (eq msg *internal-stop-sym*)
            (progn
+             (setf (tq-eoq? queue) T)
              (%tq-send-eoq queue)
              (values nil nil))
            (values msg 1))))

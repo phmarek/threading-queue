@@ -312,7 +312,7 @@
     (format t "got ~d threads~%" c)
     (X ((1)) res)
     (assert (< c 3000))
-    (assert (> c 2))))
+    (assert (> c 1))))
 
 
 ;; test read-* translations
