@@ -350,8 +350,7 @@
   returns T for EOF (in some circumstances).
   Try to guess a few well-known things."
   (if (member (first body) *reverse-2nd-value*)
-    (let ((res-var (gensym))
-          (eof-var (gensym)))
+    (with-gensyms (res-var eof-var)
       `(multiple-value-bind (,res-var ,eof-var) ,body
          (if ,eof-var
            (values nil nil)
@@ -418,8 +417,7 @@
     (let ((fn-name (gensym (format nil "~a-~d-" 'starter stmt-counter))))
       (cond
 		(filter
-		  (let ((filter-fn (gensym "FILTER"))
-				(iter-var (gensym "ITER")))
+		  (with-gensyms (filter-fn iter-var)
 			(list
 			  `(,filter-fn (,(intern arg-name))
 						   , filter)
