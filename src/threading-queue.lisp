@@ -705,6 +705,7 @@
 ;;; --------------------------------------------------
 ;;; Main macro
 (defmacro threading-feed (&body body)
+  #. +threading-feed-doc+
   ;; TODO: ensure order of elements across user function calls?
   (let* ((step-count (length body))
          (steps+1 (1+ step-count))

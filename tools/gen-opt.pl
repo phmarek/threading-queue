@@ -57,7 +57,7 @@ print join("\n\t",
 
 print "(define-constant +threading-feed-doc+\n\"",
     join("\n", @doc), "\n",
-    "Please see +all-options+ for more information about the options; the small reminder list is\n\t",
+    "Please see +all-options+ for more information about the options; the small reminder list is\n   ",
     join(" ", @opt), "\"\n",
     "\t:test #'equal)\n\n";
 
