@@ -506,11 +506,13 @@
       ;;
       ;; Code block building
       (setf functions (nconc (reverse fns) functions))
-      (push `(new-thread #',(caar (last fns))
-                         ,(assoc-val :parallel settings)
-                         ,(if input (tq-link-name input))
-                         ,output-name)
-            run-code))))
+      (let ((fn-name (caar (last fns))))
+        (push `(new-thread #',fn-name
+                           ',fn-name
+                           ,(assoc-val :parallel settings)
+                           ,(if input (tq-link-name input))
+                           ,output-name)
+              run-code)))))
 
 
 (defun all-steps (fn steps)
@@ -559,8 +561,8 @@
                      (concur-set (to)
                                  (chg-thr-count (- ,max-cc-thr-var to))
                                  (setf ,max-cc-thr-var to))
-                     (new-thread (fn count prev-queue next-queue)
-                                 (iter (repeat (or count 1))
+                     (new-thread (fn name count prev-queue next-queue)
+                                 (iter (for i below (or count 1))
                                    ;; todo: first thread doesn't increment
                                    ;; input+output count, so that the main
                                    ;; thread doesn't need to decrement again
@@ -574,7 +576,8 @@
                                          (chg-thr-count -1)
                                          (if next-queue
                                            (tq-input-vanished next-queue))
-                                         nil)))
+                                         nil))
+                                     :name (format nil "~a#~d" name i))
                                    ;; stop creating threads if there's
                                    ;; nothing more to do
                                    ;; TODO: in case of "upwards" injection
