@@ -18,5 +18,6 @@
                         (:file "options")
                         (:file "threading-queue"))
            :serial T
-		   :depends-on (alexandria iterate ;sb-concurrency
-                                  ))
+		   :depends-on (alexandria iterate sb-concurrency))
+
+

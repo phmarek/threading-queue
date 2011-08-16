@@ -1,9 +1,5 @@
 (in-package :threading-queue)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require :sb-concurrency)
-  (use-package :sb-concurrency))
-
 ;;;
 ;;; Every queue accepts data as long there's at least one input left.
 ;;; As long as there's data available the second value it T.

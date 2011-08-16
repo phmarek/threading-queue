@@ -1,6 +1,6 @@
 (in-package #:cl)
 (defpackage #:threading-queue
-  (:use #:asdf #:cl #:iterate #:alexandria) ;#:sb-concurrency
+  (:use #:asdf #:cl #:iterate #:alexandria #:sb-concurrency)
   (:export #:make-threading-queue #:make-filled-tq
 
            #:tq-new-input #:tq-input-vanished
