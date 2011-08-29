@@ -431,3 +431,21 @@
    (threading-feed (:initial-contents '(0 1 2 3 4 5 6 7 8 9) :parallel 2)
 	 (:filter (oddp *))
 	 (:filter (not (zerop (mod * 3))))))
+
+
+;; test :before-stopping
+(X (1)
+   (let ((vr 0))
+     (threading-feed (:initial-contents '(1 2 4)
+                      :before-stopping (setf vr 1)
+                      :want-result vr)
+                     (identity *))
+     vr))
+(X (3)
+   (let ((vr 0))
+     (threading-feed (:initial-contents '(1)
+                      :before-stopping (progn (setf vr 2))
+                      :want-result vr)
+                     ((sleep 0.5)
+                      (incf vr *)))
+     vr))

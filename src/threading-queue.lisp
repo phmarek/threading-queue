@@ -590,7 +590,7 @@
                     (assert (plusp ,max-thr-var))
                     (concur-set ,max-thr-var)
                     ,@ (all-steps #'tq-step-run-code step-list)
-                    , (ensure-list-of-lists (assoc-val :before-stopping settings))
+                    , (ensure-list (assoc-val :before-stopping settings))
                     ;; wait for end
                     (concur-set 0)
                     ;; return final data and collect threads
