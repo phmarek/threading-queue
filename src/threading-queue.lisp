@@ -65,15 +65,6 @@
   ;; these are tq-step
   writers readers)
 
-#+nil
-(defun make-tq-link (&key name writers readers)
-  (%make-tq-link
-    :name name
-    :user-defined-name (not (null name))
-    :writers writers
-    :readers readers))
-
-
 
 ;;; --------------------------------------------------
 ;;; Input count handling
