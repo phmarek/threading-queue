@@ -595,7 +595,7 @@
                     (concur-set 0)
                     ;; return final data and collect threads
                     (values
-                      ,(assoc-val :want-result settings)
+                      ,(funcall (assoc-val :want-result-fn settings))
                       (mapcar #'sb-thread:join-thread ,finished-threads-var)))))))))
 
 
@@ -612,21 +612,26 @@
 
 
 (defun fix-want-result (steps settings) 
+  "Returns a closure that returns the code for the end."
+  ;; The queue-names might still change, so we have
+  ;; to get the actual queue name when building the code.
   (let ((want-result (assoc-val :want-result settings)))
     (if (not want-result)
-      `nil
+      (lambda () nil)
       (let ((last-step (aref steps
-                             (1- (fill-pointer steps))))
-            (name (gensym "RESULT")))
+                             (1- (fill-pointer steps)))))
         (setf (tq-step-output last-step)
               (make-tq-link :writers last-step
-                            :name name))
+                            :name (gensym "RESULT")))
         (cond
           ((eq T want-result)
            ;; make an output queue for the last step
-           `(tq-get ,name t))
+           (lambda ()
+             `(tq-get ,(tq-link-name 
+                         (tq-step-output last-step))
+                      t)))
           (t ;; any user-code
-            want-result))))))
+            (lambda () `(progn ,want-result))))))))
 
 
 (defun make-vars (steps)
@@ -727,7 +732,7 @@
     (fix-first-step (aref steps 0) global-settings)
     (let ((nr (fix-want-result steps global-settings)))
       (push 
-        (cons :want-result nr) global-settings))
+        (cons :want-result-fn nr) global-settings))
     ;;
     (build-code-blocks steps)
     (make-vars steps)

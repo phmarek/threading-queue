@@ -387,6 +387,19 @@
      (tq-input-vanished tq)
      (tq-items tq)))
 
+(X ((n m o) (T T))
+   (threading-feed
+     (:queue-named X 
+      :initial-contents '(n m o)
+      :before-stopping (progn
+                         (tq-input-vanished x)
+                         (tq-input-vanished y)
+                         (tq-input-vanished z)))
+     (:queue-named Y 
+      (identity *))
+     (:queue-named Z 
+      (identity *))))
+
 
 ;; test :initial-queue
 (let ((iq (make-filled-tq  '(a d g) :eoq T)))
