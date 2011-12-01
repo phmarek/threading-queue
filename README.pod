@@ -35,7 +35,7 @@ Using per-step options in the global sections makes them defaults for the indivi
 
 =over
 
-=item :initial-contents NIL
+=item :initial-contents NIL; evaluated
 
 This expression is evaluated once, and specifies the elements that get fed into the first step.
 
@@ -45,7 +45,7 @@ If this is not specified, the first step will be called until it returns C<NIL>;
 
 This is used to use an existing TQ as input to the first step.
 
-=item :max-concurrent-threads 512
+=item :max-concurrent-threads 512; evaluated
 
 =for comment (floor MOST-POSITIVE-FIXNUM 3)
 
@@ -85,7 +85,7 @@ Most of these can be given in the global section, and are then used as default f
 
 =over
 
-=item :parallel NIL aka :threads
+=item :parallel NIL aka :threads; evaluated
 
 How many threads should be allocated for this step?
 
@@ -95,7 +95,7 @@ This is an upper limit; if there's no input left, no additional threads will be 
 
 This symbol gets used as argument for the generated functions; the default is C<*>, see the example above.
 
-=item :batch-size NIL
+=item :batch-size NIL; evaluated
 
 If you want to handle multiple elements at once, you can give this option a positive fixnum.
 
@@ -152,6 +152,21 @@ C<:parallel> and C<:arg-name> can be used, too.
 
 
 =head1 EXAMPLES AND SPECIAL CASES
+
+=head2 QUOTING
+
+This example illustrates which parameters are evaluated and which are not.
+
+I'm aware that C<(incf)> and C<(decf)> are not atomic, that the special variable C<*thread-count*> might be per-thread, etc.
+
+  (threading-feed
+    (:parallel ((cpu-count)
+                (floor (cpu-count) 2))
+     :batch-size (if (filtering?) 1 NIL) 
+     :at-start (incf *thread-count*)
+     :at-end (decf *thread-count*))
+    ...)
+
 
 =head2 READ function family
 
